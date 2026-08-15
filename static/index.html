@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobPilot — Intelligent Job Discovery & Application Tracker</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
+        <div class="header-left">
+            <div class="brand">
+                <div class="brand-icon">⚡</div>
+                <div class="brand-text">
+                    <h1>JobPilot</h1>
+                    <span class="badge-role">.NET & Angular Full Stack</span>
+                </div>
+            </div>
+            <nav class="nav-tabs">
+                <button class="nav-btn active" data-tab="feed-tab">
+                    <span class="icon">🔍</span> Job Matches
+                    <span class="counter-badge" id="feed-count">0</span>
+                </button>
+                <button class="nav-btn" data-tab="pipeline-tab">
+                    <span class="icon">📊</span> Applications Pipeline
+                    <span class="counter-badge" id="pipeline-count">0</span>
+                </button>
+                <button class="nav-btn" data-tab="profile-tab">
+                    <span class="icon">⚙️</span> Auto-Fill & Profile
+                </button>
+            </nav>
+        </div>
+
+        <div class="header-right">
+            <!-- Chrome Status Indicator -->
+            <div id="chrome-status-pill" class="status-pill status-disconnected" onclick="showChromeModal()">
+                <span class="status-dot"></span>
+                <span id="chrome-status-text">Checking Chrome...</span>
+            </div>
+
+            <!-- Scan Button -->
+            <button id="scan-btn" class="btn btn-primary" onclick="triggerScan()">
+                <span class="btn-icon">⚡</span>
+                <span id="scan-btn-label">Scan Jobs via Chrome</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Scan Progress Bar (Sticky under header when active) -->
+    <div id="scan-progress-bar" class="scan-progress hidden">
+        <div class="scan-spinner"></div>
+        <span id="scan-status-text">Scanning job portals...</span>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="main-container">
+        <!-- Stats Summary Bar -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-meta">
+                    <span class="stat-label">Total Discovered</span>
+                    <span class="stat-icon">📑</span>
+                </div>
+                <div class="stat-value" id="stat-total">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-meta">
+                    <span class="stat-label">High Match (≥70%)</span>
+                    <span class="stat-icon">🎯</span>
+                </div>
+                <div class="stat-value text-accent" id="stat-high">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-meta">
+                    <span class="stat-label">Needs Review</span>
+                    <span class="stat-icon">⚠️</span>
+                </div>
+                <div class="stat-value text-action" id="stat-action">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-meta">
+                    <span class="stat-label">Auto-Applied</span>
+                    <span class="stat-icon">🚀</span>
+                </div>
+                <div class="stat-value text-applied" id="stat-applied">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-meta">
+                    <span class="stat-label">Screening / Interview</span>
+                    <span class="stat-icon">💬</span>
+                </div>
+                <div class="stat-value text-interview" id="stat-interview">0</div>
+            </div>
+        </section>
+
+        <!-- TAB 1: JOB MATCHES FEED -->
+        <section id="feed-tab" class="tab-content active">
+            <div class="filter-toolbar">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="job-search-input" placeholder="Search by title, skill (e.g. C#, Angular), company, or location..." oninput="filterJobs()">
+                </div>
+                <div class="filter-group">
+                    <select id="portal-filter" onchange="filterJobs()">
+                        <option value="all">All Portals</option>
+                        <option value="Naukri">Naukri.com</option>
+                        <option value="LinkedIn">LinkedIn</option>
+                    </select>
+                    <select id="score-filter" onchange="filterJobs()">
+                        <option value="0" selected>All Match Scores</option>
+                        <option value="40">≥ 40% Match</option>
+                        <option value="55">≥ 55% Match</option>
+                        <option value="70">≥ 70% High Match</option>
+                    </select>
+                    <select id="status-filter" onchange="filterJobs()">
+                        <option value="all">All Statuses</option>
+                        <option value="discovered" selected>Unapplied (Discovered)</option>
+                        <option value="action_required">⚠️ Needs Review (Questions)</option>
+                        <option value="applied">Applied</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="jobs-list" class="jobs-grid">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- TAB 2: APPLICATION PIPELINE KANBAN -->
+        <section id="pipeline-tab" class="tab-content">
+            <div class="kanban-board">
+                <!-- Column: Discovered -->
+                <div class="kanban-col">
+                    <div class="col-header">
+                        <span class="col-title">Discovered</span>
+                        <span class="col-count" id="count-discovered">0</span>
+                    </div>
+                    <div class="col-cards" id="col-discovered"></div>
+                </div>
+
+                <!-- Column: Action Required / Questions -->
+                <div class="kanban-col">
+                    <div class="col-header">
+                        <span class="col-title" style="color: #f59e0b;">⚠️ Needs Review</span>
+                        <span class="col-count" id="count-action_required">0</span>
+                    </div>
+                    <div class="col-cards" id="col-action_required"></div>
+                </div>
+
+                <!-- Column: Applied -->
+                <div class="kanban-col">
+                    <div class="col-header">
+                        <span class="col-title">Applied</span>
+                        <span class="col-count" id="count-applied">0</span>
+                    </div>
+                    <div class="col-cards" id="col-applied"></div>
+                </div>
+
+                <!-- Column: Screening -->
+                <div class="kanban-col">
+                    <div class="col-header">
+                        <span class="col-title">Screening</span>
+                        <span class="col-count" id="count-screening">0</span>
+                    </div>
+                    <div class="col-cards" id="col-screening"></div>
+                </div>
+
+                <!-- Column: Interviewing -->
+                <div class="kanban-col">
+                    <div class="col-header">
+                        <span class="col-title">Interviewing</span>
+                        <span class="col-count" id="count-interviewing">0</span>
+                    </div>
+                    <div class="col-cards" id="col-interviewing"></div>
+                </div>
+
+                <!-- Column: Offer -->
+                <div class="kanban-col">
+                    <div class="col-header">
+                        <span class="col-title">Offer Received</span>
+                        <span class="col-count" id="count-offer">0</span>
+                    </div>
+                    <div class="col-cards" id="col-offer"></div>
+                </div>
+
+                <!-- Column: Rejected -->
+                <div class="kanban-col">
+                    <div class="col-header">
+                        <span class="col-title">Archived / Rejected</span>
+                        <span class="col-count" id="count-rejected">0</span>
+                    </div>
+                    <div class="col-cards" id="col-rejected"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: AUTO-FILL PROFILE & SCREENING QA -->
+        <section id="profile-tab" class="tab-content">
+            <div class="profile-layout">
+                <!-- Candidate Information Card -->
+                <div class="card profile-card">
+                    <div class="card-title">
+                        <h2>Candidate Profile</h2>
+                        <p>Used by Chrome Co-Pilot to pre-fill standard job applications</p>
+                    </div>
+                    <form id="profile-form" onsubmit="saveProfile(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Full Name</label>
+                                <input type="text" id="prof-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Email Address</label>
+                                <input type="email" id="prof-email" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Phone Number</label>
+                                <input type="text" id="prof-phone" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Current Location</label>
+                                <input type="text" id="prof-location" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Total Experience</label>
+                                <input type="text" id="prof-exp" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Notice Period</label>
+                                <input type="text" id="prof-notice" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Current CTC</label>
+                                <input type="text" id="prof-current-ctc">
+                            </div>
+                            <div class="form-group">
+                                <label>Expected CTC</label>
+                                <input type="text" id="prof-expected-ctc">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Default Resume Path (Local)</label>
+                            <input type="text" id="prof-resume" readonly class="code-font">
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="margin-top: 12px;">Save Profile Changes</button>
+                    </form>
+                </div>
+
+                <!-- Screening Questions Memory -->
+                <div class="card qa-card">
+                    <div class="card-title">
+                        <h2>Screening Q&A Memory</h2>
+                        <p>Answers automatically provided when job portals ask common questions</p>
+                    </div>
+                    <div class="qa-table-container">
+                        <table class="qa-table">
+                            <thead>
+                                <tr>
+                                    <th>Question Trigger</th>
+                                    <th>Saved Answer</th>
+                                    <th>Category</th>
+                                </tr>
+                            </thead>
+                            <tbody id="qa-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="add-rule-box">
+                        <h3>Add New Screening Answer</h3>
+                        <form id="add-qa-form" onsubmit="addQARule(event)" class="add-qa-row">
+                            <input type="text" id="qa-key" placeholder="Key (e.g. exp_react)" required>
+                            <input type="text" id="qa-pattern" placeholder="Question pattern regex (e.g. experience.*react)" required>
+                            <input type="text" id="qa-answer" placeholder="Answer (e.g. 2 years)" required>
+                            <button type="submit" class="btn btn-secondary">Add Rule</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Chrome Setup / Connection Modal -->
+    <div id="chrome-modal" class="modal-overlay hidden" onclick="closeModalOnBackdrop(event)">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>Chrome Remote Debugging Status</h2>
+                <button class="close-btn" onclick="closeChromeModal()">✕</button>
+            </div>
+            <div class="modal-body" id="chrome-modal-body">
+                <!-- Dynamically populated with status & launcher instructions -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="checkChromeStatusNow()">Re-Check Connection</button>
+                <button class="btn btn-primary" onclick="closeChromeModal()">Got It</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Notes & Status Edit Modal -->
+    <div id="job-modal" class="modal-overlay hidden" onclick="closeModalOnBackdrop(event)">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="modal-job-title">Job Details</h2>
+                <button class="close-btn" onclick="closeJobModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="modal-job-company" style="font-weight: 600; color: var(--accent); margin-bottom: 12px;"></p>
+                <div class="form-group">
+                    <label>Application Stage</label>
+                    <select id="modal-job-status">
+                        <option value="discovered">Discovered (Unapplied)</option>
+                        <option value="applied">Applied</option>
+                        <option value="screening">Screening / HR Call</option>
+                        <option value="interviewing">Interviewing</option>
+                        <option value="offer">Offer Received</option>
+                        <option value="rejected">Archived / Rejected</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Notes (Recruiter details, interview dates, rounds feedback)</label>
+                    <textarea id="modal-job-notes" rows="4" placeholder="Add notes here..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="deleteCurrentModalJob()" style="color: #ef4444;">Delete Job</button>
+                <button class="btn btn-primary" onclick="saveJobModal()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

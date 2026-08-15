@@ -1,0 +1,41 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Personal Documents & Resumes
+*.pdf
+*.doc
+*.docx
+
+# Local Profile & Screening Answers
+profile.json
+profile.local.json
+.env
+.env.*
+
+# Scraped Data Exports & Logs
+*.csv
+jobs_latest.json
+*.log
+
+# Test Artifacts & Screenshots
+*.png
+*.jpg
+*.jpeg
+
+# Chrome User Profiles & Temp Data
+.chrome-debug/
+.chrome-jobsearch/
+ms-playwright/
+
+# OS / Editor Artifacts
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
