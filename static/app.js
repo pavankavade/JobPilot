@@ -161,6 +161,9 @@ function renderJobsFeed() {
                         <button class="btn ${isActionRequired ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="applyViaChrome(${job.id})" title="Auto-open and assist in applying">
                             ${isActionRequired ? '🔍 Review & Apply' : (isApplied ? '✓ Applied' : '⚡ 1-Click Apply')}
                         </button>
+                        <button class="btn btn-secondary btn-sm btn-dismiss" onclick="dismissJob(${job.id}, event)" title="Dismiss / Not relevant">
+                            ✕ Dismiss
+                        </button>
                         <button class="btn btn-secondary btn-sm" onclick="openJobModal(${job.id})" title="Notes & Stage">
                             ⚙️
                         </button>
@@ -321,6 +324,37 @@ async function applyViaChrome(jobId) {
         alert("Apply error: " + e);
         btn.innerText = oldText;
         btn.disabled = false;
+    }
+}
+
+// Dismiss / Remove Job from Discovered Tab
+async function dismissJob(jobId, event) {
+    if (event) event.stopPropagation();
+
+    // Optimistically update UI
+    const cardEl = event ? event.target.closest(".job-card") : null;
+    if (cardEl) {
+        cardEl.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+        cardEl.style.opacity = "0";
+        cardEl.style.transform = "scale(0.95)";
+        setTimeout(() => cardEl.remove(), 200);
+    }
+
+    const job = allJobs.find(j => j.id === jobId);
+    if (job) {
+        job.status = "archived";
+    }
+
+    updateStats();
+
+    try {
+        await fetch(`/api/jobs/${jobId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "archived", notes: "Dismissed by candidate" })
+        });
+    } catch (e) {
+        console.error("Error dismissing job:", e);
     }
 }
 

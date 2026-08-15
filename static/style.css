@@ -219,6 +219,15 @@ body {
     font-size: 12px;
 }
 
+.btn-dismiss {
+    color: var(--text-dim);
+}
+.btn-dismiss:hover {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.08);
+}
+
 /* Scan Progress Bar */
 .scan-progress {
     background: #0284c7;
